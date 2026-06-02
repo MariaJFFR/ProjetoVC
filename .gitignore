@@ -1,0 +1,24 @@
+# Dataset (demasiado grande para o GitHub ~5GB) - descarregar à parte
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+
+# Saídas / artefactos
+*.png
+*.pth
+*.pt
+
+# IDE / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
