@@ -1,5 +1,9 @@
-# Dataset (demasiado grande para o GitHub ~5GB) - descarregar à parte
-data/
+# Dataset (demasiado grande para o GitHub ~5GB) - descarregar à parte.
+# Mantém-se a estrutura de pastas (via .gitkeep), mas ignora-se o conteúdo.
+data/*
+!data/mvtec/
+data/mvtec/*
+!data/mvtec/.gitkeep
 
 # Python
 __pycache__/
