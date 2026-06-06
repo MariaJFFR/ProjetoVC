@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from PIL import Image
 import torch
@@ -80,3 +79,56 @@ def criar_dataloaders(root, category, batch_size=32, tamanho_imagem=256, num_wor
     print(f"  Teste:  {len(test_dataset)} imagens ({sum(test_dataset.labels)} defeituosas)")
     
     return train_loader, test_loader
+
+
+class ImagePathDataset(Dataset):
+    """Dataset simples para uma lista explicita de imagens.
+
+    Usado pelos scripts Bottle-only para criar splits reprodutiveis sem
+    depender de estado escondido nos notebooks.
+    """
+
+    def __init__(self, image_paths, labels=None, tipos=None, tamanho_imagem=256):
+        self.image_paths = [Path(p) for p in image_paths]
+        self.labels = labels if labels is not None else [0] * len(self.image_paths)
+        self.tipos = tipos if tipos is not None else ["good"] * len(self.image_paths)
+        self.transform = transforms.Compose([
+            transforms.Resize((tamanho_imagem, tamanho_imagem)),
+            transforms.ToTensor(),
+            transforms.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225],
+            ),
+        ])
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        img = Image.open(self.image_paths[idx]).convert("RGB")
+        img = self.transform(img)
+        label = torch.tensor(self.labels[idx], dtype=torch.long)
+        return img, label, self.tipos[idx], str(self.image_paths[idx])
+
+
+def criar_loader_de_paths(
+    image_paths,
+    labels=None,
+    tipos=None,
+    batch_size=32,
+    tamanho_imagem=256,
+    shuffle=False,
+    num_workers=0,
+):
+    dataset = ImagePathDataset(
+        image_paths=image_paths,
+        labels=labels,
+        tipos=tipos,
+        tamanho_imagem=tamanho_imagem,
+    )
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+    )

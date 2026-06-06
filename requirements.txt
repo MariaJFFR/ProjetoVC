@@ -1,0 +1,10 @@
+numpy
+pillow
+matplotlib
+scikit-learn
+joblib
+tqdm
+torch
+torchvision
+tensorflow
+typing_extensions

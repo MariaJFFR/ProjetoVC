@@ -20,6 +20,12 @@ env/
 *.png
 *.pth
 *.pt
+*.joblib
+*.keras
+results/*.json
+results/*.csv
+!models/.gitkeep
+!results/.gitkeep
 
 # IDE / SO
 .vscode/
