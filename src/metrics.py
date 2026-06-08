@@ -1,6 +1,8 @@
 import numpy as np
 from sklearn.metrics import (
     accuracy_score,
+    classification_report,
+    confusion_matrix,
     f1_score,
     precision_score,
     recall_score,
@@ -26,6 +28,40 @@ def binary_classification_metrics(y_true, scores, threshold):
         "precision": float(precision_score(y_true, y_pred, zero_division=0)),
         "recall": float(recall_score(y_true, y_pred, zero_division=0)),
         "f1": float(f1_score(y_true, y_pred, zero_division=0)),
+    }
+
+
+def multiclass_metrics(y_true, y_pred, labels):
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
+    return {
+        "accuracy": float(accuracy_score(y_true, y_pred)),
+        "macro_precision": float(
+            precision_score(y_true, y_pred, average="macro", zero_division=0)
+        ),
+        "macro_recall": float(
+            recall_score(y_true, y_pred, average="macro", zero_division=0)
+        ),
+        "macro_f1": float(
+            f1_score(y_true, y_pred, average="macro", zero_division=0)
+        ),
+        "weighted_f1": float(
+            f1_score(y_true, y_pred, average="weighted", zero_division=0)
+        ),
+        "per_class": classification_report(
+            y_true,
+            y_pred,
+            labels=labels,
+            target_names=labels,
+            output_dict=True,
+            zero_division=0,
+        ),
+        "confusion_matrix": confusion_matrix(
+            y_true,
+            y_pred,
+            labels=labels,
+        ).tolist(),
+        "labels": list(labels),
     }
 
 

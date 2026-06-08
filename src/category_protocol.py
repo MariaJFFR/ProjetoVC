@@ -55,3 +55,20 @@ def category_test_records(category):
             )
 
     return records
+
+
+def category_defective_records(category):
+
+    return [
+        record
+        for record in category_test_records(category)
+        if record.label == 1
+    ]
+
+
+def category_defect_types(category):
+
+    return sorted({
+        record.defect_type
+        for record in category_defective_records(category)
+    })
