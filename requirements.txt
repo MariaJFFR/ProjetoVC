@@ -1,4 +1,5 @@
 numpy
+pandas
 pillow
 matplotlib
 scikit-learn

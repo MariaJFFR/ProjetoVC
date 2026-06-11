@@ -1,129 +1,149 @@
-# ProjetoVC - Bottle Anomaly Detection on MVTec AD
+# Deteção de Defeitos Industriais — MVTec AD
 
-This project studies visual anomaly detection for the **Bottle** category of
-MVTec AD. The scope is intentionally limited to Bottle and to the three methods
-already present in the original project:
+Projeto de inspeção visual de qualidade industrial sobre o dataset
+**MVTec AD**. O objetivo é **detetar** e **localizar** defeitos em produtos,
+comparando abordagens **supervisionadas** e **não supervisionadas**.
 
-1. Convolutional autoencoder anomaly detection.
-2. ResNet18 feature extraction + Mahalanobis anomaly scoring.
-3. Supervised CNN classifier as an illustrative baseline.
+A categoria principal de estudo é a **`bottle`**; alguns modelos foram ainda
+treinados em **5 categorias** (`bottle`, `cable`, `capsule`, `tile`, `wood`)
+para avaliar a generalização.
 
-The refactored protocol fixes the main experimental issues in the notebooks:
-test-set threshold tuning, missing validation calibration, mask interpolation
-errors, missing reproducibility controls, and inconsistent metric saving.
+---
 
-## Scope
+## Modelos implementados
 
-This repository does **not** implement a generic MVTec pipeline. It does not add
-support for all categories, category classifiers, PatchCore, PaDiM, U-Net, ViTs,
-CLIP, or any other additional anomaly detection method.
+| Modelo | Tipo | Tarefa | Como funciona |
+|---|---|---|---|
+| **Autoencoder** | Não supervisionado | Deteção + localização | Treina só com imagens normais; o **erro de reconstrução** é o score de anomalia |
+| **ResNet18 + Mahalanobis** | Não supervisionado | Deteção | Features pré-treinadas (ImageNet) + **distância de Mahalanobis** à distribuição normal |
+| **CNN** | Supervisionado | Deteção | Classificador binário normal/defeito (*baseline ilustrativo*) |
+| **U-Net** | Supervisionado | Localização | Segmentação ao pixel com máscaras de *ground truth* |
+| **Classificador de tipo de defeito** | Supervisionado | Identificar o defeito | Features ResNet18 + LogisticRegression (por categoria) |
+
+> O **pipeline** (`scripts/predict_pipeline.py`) junta tudo: classifica a
+> categoria → deteta anomalia → se houver defeito, segmenta-o.
+
+---
+
+## Estrutura do projeto (arquitetura)
+
+O código está organizado de forma **modular**, com um fluxo unidirecional:
+
+```
+data/  →  src/  →  scripts/  →  models/ + results/  →  notebooks/
+(dados)  (lógica)  (execução)   (artefactos)          (visualização)
+```
+
+| Pasta | Conteúdo |
+|---|---|
+| `data/` | Dataset MVTec AD (imagens + máscaras). **Só leitura, nunca modificada.** |
+| `src/` | Código reutilizável: modelos (`autoencoder.py`, `unet.py`), protocolos/splits (`bottle_protocol.py`, `category_protocol.py`), datasets (`dataset.py`, `unet_dataset.py`) e métricas (`metrics.py`, `eval_*.py`). |
+| `scripts/` | Programas executáveis — um por modelo (treino + avaliação) + o pipeline. |
+| `models/` | Modelos treinados (`.pth`, `.keras`, `.joblib`). |
+| `results/` | Métricas e históricos (`.json`, `.csv`). |
+| `notebooks/` | Exploração e **visualização** dos resultados (gráficos, exemplos, matrizes). |
+
+A lógica vive em `src/`, por isso **scripts e notebooks usam o mesmo código** e
+dão resultados idênticos.
+
+---
 
 ## Dataset
 
-Expected dataset location:
+O dataset **não está incluído** (é grande). Descarrega o
+[MVTec AD](https://www.mvtec.com/company/research/datasets/mvtec-ad) e coloca-o
+em `data/mvtec/`, com esta estrutura por categoria:
 
 ```text
 data/mvtec/bottle/
-  train/good/*.png
-  test/good/*.png
-  test/broken_large/*.png
-  test/broken_small/*.png
-  test/contamination/*.png
-  ground_truth/<defect_type>/*_mask.png
+  train/good/*.png                 # imagens normais (treino)
+  test/good/*.png                  # imagens normais (teste)
+  test/<tipo_de_defeito>/*.png      # imagens defeituosas (teste)
+  ground_truth/<tipo>/*_mask.png    # máscaras dos defeitos
 ```
 
-The unsupervised methods use only `bottle/train/good` for fitting and threshold
-calibration. `bottle/test` is reserved for final evaluation.
+---
 
-## Setup
+## Instalação
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Execution Order
+Requer Python 3.10+ com PyTorch, TensorFlow/Keras, scikit-learn, etc.
+(GPU recomendada para o autoencoder e a U-Net, mas não obrigatória.)
 
-Run from the repository root:
+---
+
+## Como correr
+
+Corre todos os comandos **a partir da raiz do projeto**.
 
 ```bash
-python scripts/train_autoencoder_bottle.py
-python scripts/eval_autoencoder_bottle.py
-python scripts/eval_resnet_bottle.py
+# 1. Autoencoder (deteção + localização) — bottle
+python scripts/train_autoencoder_bottle.py     # treina e guarda o modelo
+python scripts/eval_autoencoder_bottle.py      # avalia (AUROC, IoU, Dice)
+
+# 2. ResNet18 + Mahalanobis (deteção) — 5 categorias
+python scripts/train_resnet_category.py
+
+# 3. CNN supervisionada (baseline) — bottle
 python scripts/train_eval_cnn_bottle.py
+
+# 4. U-Net (segmentação) — 5 categorias
+python scripts/train_unet_category.py          # treina
+python scripts/eval_unet_category.py           # avalia (Pixel-AUROC, IoU, Dice)
+
+# 5. Classificador de tipo de defeito (Tarefa 2) — 5 categorias
+python scripts/train_eval_defect_classifier.py
+
+# 6. (Opcional) Classificador de categoria, para o pipeline
+python scripts/build_category_dataset.py
+python scripts/train_eval_category_classifier.py
 ```
 
-Generated files:
+Cada script **guarda os modelos em `models/`** e as **métricas em `results/`**.
 
-```text
-models/autoencoder_bottle_best.pth
-models/resnet_mahalanobis_bottle.joblib
-models/cnn_bottle.keras
-results/autoencoder_bottle_training.json
-results/autoencoder_bottle_metrics.json
-results/resnet_bottle_metrics.json
-results/cnn_bottle_metrics.json
+Pipeline end-to-end (interativo — pede o caminho de uma imagem):
+
+```bash
+python scripts/predict_pipeline.py
 ```
 
-## Protocol Summary
+Depois de treinar/avaliar, abre os **notebooks 02–07** para ver os gráficos.
 
-### Autoencoder
-
-- Train on a deterministic subset of `bottle/train/good`.
-- Validate on the remaining normal images from `bottle/train/good`.
-- Save the checkpoint with the best validation reconstruction loss.
-- Calibrate image threshold from validation normal image reconstruction scores.
-- Calibrate pixel threshold from validation normal reconstruction-error pixels.
-- Evaluate only on `bottle/test`.
-
-Metrics:
-
-- Image AUROC
-- Pixel AUROC
-- Precision
-- Recall
-- F1
-- IoU
-- Dice
-
-### ResNet18 + Mahalanobis
-
-- Extract ImageNet-pretrained ResNet18 features.
-- Fit LedoitWolf covariance on train-normal Bottle features.
-- Calibrate threshold on validation-normal Mahalanobis scores.
-- Evaluate only on `bottle/test`.
-
-Metrics:
-
-- Image AUROC
-- Precision
-- Recall
-- F1
-
-### Supervised CNN
-
-The CNN is kept as an **illustrative supervised baseline**. MVTec Bottle does
-not provide defective training images, so the CNN must use a split of the
-official test defects to learn the defect class. Because of that, its metrics
-are **not directly comparable** to the official MVTec anomaly-detection
-protocol used by the unsupervised methods.
-
-Metrics:
-
-- Accuracy
-- Precision
-- Recall
-- F1
-- AUROC
+---
 
 ## Notebooks
 
-The notebooks remain useful as exploratory material:
+| Notebook | Conteúdo |
+|---|---|
+| `00_teste_dataloaders` / `01_exploração` | Exploração do dataset |
+| `02_autoencoder` | Autoencoder: treino + reconstruções |
+| `03_classificador` | CNN: treino + matriz de confusão + exemplos |
+| `04_resnet` | ResNet+Mahalanobis: scores + AUROC por categoria |
+| `05_metricas` | Autoencoder: métricas de localização + falsos positivos |
+| `06_tipo_defeito` | Classificador de tipo de defeito (Tarefa 2) |
+| `07_unet` | U-Net: segmentação + comparação com o autoencoder |
 
-- `00_teste_dataloaders.ipynb`: dataloader sanity check.
-- `01_exploração.ipynb`: dataset exploration.
-- `02_autoencoder.ipynb`: original autoencoder experiment.
-- `03_classificador.ipynb`: original supervised CNN experiment.
-- `04_resnet.ipynb`: original ResNet + Mahalanobis experiment.
-- `05_metricas.ipynb`: original metric exploration.
+Os notebooks reutilizam as funções de `src/`, por isso reproduzem **a mesma
+metodologia** dos scripts.
 
-For reproducible results, prefer the scripts under `scripts/`.
+---
+
+## Metodologia (sem *data leakage*)
+
+Princípio seguido em todos os modelos:
+
+1. As imagens normais de treino são divididas em **treino** e **validação**.
+2. O conjunto de **teste** é reservado só para a avaliação final.
+3. A seleção do melhor modelo e a calibração dos **limiares** são feitas na
+   **validação**, **nunca no teste**.
+4. As *seeds* são fixadas e os resultados são guardados em ficheiros.
+
+Isto evita a **fuga de informação** (métricas artificialmente otimistas) e
+garante que os resultados são **reprodutíveis**.
+
+> Nota: a CNN é um **baseline ilustrativo**. Como o MVTec não tem defeitos no
+> treino, usa parte dos defeitos do conjunto de teste — por isso as suas
+> métricas **não são diretamente comparáveis** às dos métodos não supervisionados.
