@@ -1,6 +1,6 @@
 # Deteção de Defeitos Industriais — MVTec AD
 
-Projeto feito para a cadeira de visão por computador de inspeção visual de qualidade industrial sobre o dataset
+Projeto feito para a cadeira de visão por computador, consiste na inspeção visual de qualidade industrial sobre o dataset
 **MVTec AD**. O objetivo é **detetar** e **localizar** defeitos em produtos,
 comparando abordagens **supervisionadas** e **não supervisionadas**.
 
